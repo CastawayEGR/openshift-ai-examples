@@ -1,0 +1,123 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ollama
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openweb-data
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  volumeMode: Filesystem
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+  name: open-webui
+  namespace: ollama
+  labels:
+    app: open-webui
+    app.kubernetes.io/component: open-webui
+    app.kubernetes.io/instance: open-webui
+    app.kubernetes.io/name: open-webui
+    app.kubernetes.io/part-of: ollama-app
+    app.openshift.io/runtime: python
+    app.openshift.io/runtime-namespace: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-webui
+  template:
+    metadata:
+      labels:
+        app: open-webui
+        deployment: open-webui
+    spec:
+      containers:
+        - name: open-webui
+          image: 'quay.io/castawayegr/open-webui:v0.1.122'
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OLLAMA_BASE_URL
+              value: 'http://ollama.ollama.svc.cluster.local:11434'
+            - name: AUTOMATIC1111_BASE_URL
+              value: 'http://stable-diffusion-webui.ollama.svc.cluster.local:7860/'
+            - name: ENABLE_IMAGE_GENERATION
+              value: 'true'
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              memory: 500Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+            - name: openweb-data
+              mountPath: /app/backend/data
+      volumes:
+        - name: openweb-data
+          persistentVolumeClaim:
+            claimName: openweb-data
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: open-webui
+  namespace: ollama
+  labels:
+    app: open-webui
+    app.kubernetes.io/component: open-webui
+    app.kubernetes.io/instance: open-webui
+    app.kubernetes.io/name: open-webui
+    app.kubernetes.io/part-of: ollama-app
+    app.openshift.io/runtime-version: main
+spec:
+  ports:
+    - name: 8080-tcp
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: open-webui
+    deployment: open-webui
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: open-webui
+  namespace: ollama
+  labels:
+    app: open-webui
+    app.kubernetes.io/component: open-webui
+    app.kubernetes.io/instance: open-webui
+    app.kubernetes.io/name: open-webui
+    app.kubernetes.io/part-of: ollama-app
+spec:
+  to:
+    kind: Service
+    name: open-webui
+    weight: 100
+  port:
+    targetPort: 8080-tcp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

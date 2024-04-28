@@ -1,0 +1,117 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: sd-data
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 40Gi
+  volumeMode: Filesystem
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: stable-diffusion-webui
+  namespace: ollama
+  labels:
+    app: stable-diffusion-webui
+    app.kubernetes.io/component: stable-diffusion-webui
+    app.kubernetes.io/instance: stable-diffusion-webui
+    app.kubernetes.io/name: stable-diffusion-webui
+    app.kubernetes.io/part-of: ollama-app
+    app.openshift.io/runtime: python
+    app.openshift.io/runtime-namespace: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stable-diffusion-webui
+  template:
+    metadata:
+      labels:
+        app: stable-diffusion-webui
+        deployment: stable-diffusion-webui
+    spec:
+      containers:
+        - name: stable-diffusion-webui
+          image: 'quay.io/castawayegr/stable-diffusion-webui:v1.9.3'
+          imagePullPolicy: IfNotPresent
+          args:
+            - '--xformers'
+            - '--medvram'
+          resources:
+            requests:
+              memory: 500Mi
+            limits:
+              memory: 6Gi
+              nvidia.com/gpu: '1'
+          ports:
+            - containerPort: 7860
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+            - name: sd-data
+              mountPath: /data/
+      volumes:
+        - name: sd-data
+          persistentVolumeClaim:
+            claimName: sd-data
+      restartPolicy: Always
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: stable-diffusion-webui
+  namespace: ollama
+  labels:
+    app: stable-diffusion-webui
+    app.kubernetes.io/component: stable-diffusion-webui
+    app.kubernetes.io/instance: stable-diffusion-webui
+    app.kubernetes.io/name: stable-diffusion-webui
+    app.kubernetes.io/part-of: ollama-app
+spec:
+  ports:
+    - name: 7860-tcp
+      protocol: TCP
+      port: 7860
+      targetPort: 7860
+  selector:
+    app: stable-diffusion-webui
+    deployment: stable-diffusion-webui
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: stable-diffusion-webui
+  namespace: ollama
+  labels:
+    app: stable-diffusion-webui
+    app.kubernetes.io/component: stable-diffusion-webui
+    app.kubernetes.io/instance: stable-diffusion-webui
+    app.kubernetes.io/name: stable-diffusion-webui
+    app.kubernetes.io/part-of: ollama-app
+spec:
+  to:
+    kind: Service
+    name: stable-diffusion-webui
+    weight: 100
+  port:
+    targetPort: 7860-tcp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

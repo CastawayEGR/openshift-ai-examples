@@ -1,0 +1,92 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: ollama-data
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  volumeMode: Filesystem
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+    app.kubernetes.io/component: ollama
+    app.kubernetes.io/instance: ollama
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ollama-app
+    app.openshift.io/runtime: golang
+    app.openshift.io/runtime-namespace: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+        deployment: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: 'docker.io/ollama/ollama:0.1.32'
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: 500Mi
+            limits:
+              memory: 2Gi
+              nvidia.com/gpu: '1'
+          ports:
+            - containerPort: 11434
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /.ollama
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      restartPolicy: Always
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+    app.kubernetes.io/component: ollama
+    app.kubernetes.io/instance: ollama
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ollama-app
+spec:
+  ports:
+    - name: 11434-tcp
+      protocol: TCP
+      port: 11434
+      targetPort: 11434
+  selector:
+    app: ollama
+    deployment: ollama
