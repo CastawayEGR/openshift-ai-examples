@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
         - name: stable-diffusion-webui
-          image: 'quay.io/castawayegr/stable-diffusion-webui:v1.9.3'
+          image: 'quay.io/castawayegr/stable-diffusion-webui:v1.9.4'
           imagePullPolicy: IfNotPresent
           args:
             - '--xformers'
