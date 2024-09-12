@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
         - name: ollama
-          image: 'docker.io/ollama/ollama:0.3.9'
+          image: 'docker.io/ollama/ollama:0.3.10'
           imagePullPolicy: IfNotPresent
           resources:
             requests:
