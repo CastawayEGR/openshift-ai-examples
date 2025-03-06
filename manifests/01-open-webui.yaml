@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: open-webui
-          image: 'quay.io/castawayegr/open-webui:v0.5.16'
+          image: 'quay.io/castawayegr/open-webui:v0.5.19'
           imagePullPolicy: IfNotPresent
           env:
             - name: OLLAMA_BASE_URL
